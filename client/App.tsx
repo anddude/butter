@@ -1,34 +1,27 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import './styles.css';
+import {Button, InputText, TextResults} from './components.tsx';
+
+//do we input Elijah's interface here? question for another time tho- esm
+
+//Fetch health status from server once we connect with Elijah. - esm
+
 
 function App() {
-  const [count, setCount] = useState(0)
+  //We'll need to manage the state of the input text and the clarified text here...other states we need to manage?
+  // const [inputText, setInputText] = useState("");
+  // const [results, setResults] = useState<Array<[string, number]>>([]);
+
+  //we need async function to "fetch" from the server .. localhost:4200? whichever port Elijah decides onthe backend - esm
+
+
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="container">
+      <InputText />
+      <Button />
+      <TextResults/>
+    </div>
   )
 }
 
