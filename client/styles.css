@@ -4,8 +4,8 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: rgba(224, 46, 46, 0.87);
+  background-color: rgb(249, 223, 177);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -25,33 +25,54 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 7em;
   line-height: 1.1;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+.text-input{
+  border-radius: 10px;
+  border: .15em solid;
+  padding: 2em 2em 2em 2em;
+  font-size: 2em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  color: #ac1807;
+  margin-bottom: 1em;
+}
+
+button {
+  border-radius: .5em;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 2em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #646cff;
   cursor: pointer;
   transition: border-color 0.25s;
+  margin-bottom: .5em;
 }
+
 button:hover {
   border-color: #646cff;
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+.container{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
 }
 
 @media (prefers-color-scheme: light) {
@@ -63,6 +84,6 @@ button:focus-visible {
     color: #747bff;
   }
   button {
-    background-color: #f9f9f9;
+    background-color: #cc2c2c;
   }
 }
