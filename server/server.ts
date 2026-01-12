@@ -29,7 +29,7 @@ app.use(cors());  // so vite client can call api (frontend connected to backend)
 app.get('/api/health', (_req, res) => {
   res.status(200).json({
     ok: true,
-    hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY),
+    hasOpenAiKey: Boolean(process.env.OPEN_AI_KEY),
   });
 });
 

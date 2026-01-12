@@ -14,7 +14,7 @@ import { normalizeText, countWordFrequency, getTopWords } from './services.ts';
 /* ---------- openai client ---------- */
 /* note: official sdk supports responses + embeddings :contentReference[oaicite:1]{index=1} */
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPEN_AI_KEY,
 });
 
 
@@ -90,7 +90,7 @@ export const summarizeWithOpenAi: RequestHandler = async (_req, res, next) => {
     return next(buildServerError('summarizeWithOpenAi: missing locals', 500, 'server pipeline error'));
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPEN_AI_KEY) {
     return next(buildServerError('summarizeWithOpenAi: missing OPENAI_API_KEY', 500, 'OPENAI_API_KEY not set'));
   }
 
