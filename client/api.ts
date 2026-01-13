@@ -8,6 +8,14 @@ import type {
 } from '../types.ts';
 //import text input from app.tsx
 
+//generic error handler to reduce repetition & keep it DRY
+const handleJson = async <T>(res: Response): Promise<T> => {
+  if (!res.ok) {
+    const { error } = await res.json();
+    throw new Error(error ?? 'Request failed');
+  }
+  return res.json();
+};
 
 //ANALYZE TEXT ROUTE API -- #1 Mission
 //Sending input data to backend for processing
@@ -20,12 +28,7 @@ export const fetchAnalyzedText = async (
     body: JSON.stringify(textInput),
   });
 
-  if (!res.ok) {
-    const errorPayload = await res.json();
-    throw new Error(errorPayload.error);
-  } else {
-    return res.json();
-  }
+  return handleJson<AnalyzeTextResponse>(res);
 };
 
 //AI SUMMARIZE TEXT ROUTE API -- #2 Mission
@@ -38,12 +41,7 @@ export const fetchSummarizedText = async (
     body: JSON.stringify(textInput),
   });
 
-  if (!res.ok) {
-    const errorPayload = await res.json();
-    throw new Error(errorPayload.error);
-  } else {
-    return res.json();
-  }
+return handleJson<SummarizeTextResponse>(res);
 };
 
 //RAG SUMMARIZE TEXT API -- Stretch Goal
@@ -56,10 +54,6 @@ export const ragSummarizeText = async (
     body: JSON.stringify(textInput),
   });
 
-  if (!res.ok) {
-    const errorPayload = await res.json();
-    throw new Error(errorPayload.error);
-  } else {
-    return res.json();
-  }
+return handleJson<RagSummarizeTextResponse>(res);
+
 };
