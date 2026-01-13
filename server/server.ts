@@ -2,83 +2,75 @@
     TL;DR  -->  express app + routes + error handler
 ================================ */
 
-import express, { type ErrorRequestHandler } from 'express';
-import cors from 'cors';
-import 'dotenv/config';
-import type {  ApiLocals,  AnalyzeTextResponseBody,  SummarizeTextResponseBody,  ServerError, } from '../types.ts';
-import { parseTextBody, analyzeText, summarizeWithOpenAi } from './controllers.ts';
-
-
-const app = express();
-
-
-/* ---------- middleware ---------- 
-    - keep payloads small to control costs  -->  will see more in the future with LLM/RAG tie ins */
-
-app.use(express.json({ limit: '200kb' }));
-
-
-app.use(cors());  // so vite client can call api (frontend connected to backend)
 
 
 
+ // load once and first so middleware have access to the api keys
+import "dotenv/config"; 
+// verify api key exists
+console.log("[env] openrouter key present:", Boolean(process.env.OPENROUTER_API_KEY));
+console.log("[env] llm provider:", process.env.LLM_PROVIDER);
 
 
-/* ---------- health ---------- */
+import express from "express";
+import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import cors from "cors";
 
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({
-    ok: true,
-    hasOpenAiKey: Boolean(process.env.OPEN_AI_KEY),
-  });
+import type { HealthPayload, LlmProvider } from "../types";
+import { analyzeText, summarizeText, ragSummarizeText } from "./controllers";
+
+
+// server config
+const port = Number(process.env.PORT ?? "3000");
+const llmProvider = (process.env.LLM_PROVIDER ?? "openai") as LlmProvider;
+
+const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY);
+const hasOpenRouterKey = Boolean(process.env.OPENROUTER_API_KEY);
+
+
+const app = express();  // create the express app
+
+
+// middleware
+app.use(cors());
+app.use(express.json());
+
+
+
+
+// ----------  routes  ----------
+
+// GET /api/health  -->  just confirms the server is alive
+app.get("/api/health", (request: Request, response: Response) => {
+    const payload: HealthPayload = {
+        ok: true,
+        hasOpenAiKey,
+        hasOpenRouterKey,
+        llmProvider,
+    };
+
+    response.status(200).json(payload);
 });
 
 
+// POST /api/analyze-text  -->  body: { text: string, topLimit?: number }
+app.post("/api/analyze-text", async (request: Request, response: Response, next: NextFunction) => {
+    try {
+        const result = await analyzeText(request.body);
+        response.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+});
 
 
-/* ---------- no-ai mvp ---------- 
-    - parse  -->  analyze  -->  respond
-*/
-
-app.post('/api/analyze-text',
-  parseTextBody,
-  analyzeText,
-  (_req, res) => {
-    const locals = res.locals as ApiLocals;
-
-    const topWords = locals.topWords ?? [];
-    const cleanedWords = locals.cleanedWords ?? [];
-
-    const payload: AnalyzeTextResponseBody = {
-      topWords,
-      totalWords: cleanedWords.length,
-      uniqueWords: new Set(cleanedWords).size,
-    };
-
-    res.status(200).json(payload);
-  }
-);
-
-
-
-
-
-/* ---------- ai prompt mvp ---------- 
-    - parse  -->  analyze  -->  summarize  -->  respond
-*/
-
-app.post('/api/summarize-text',
-  parseTextBody,
-  analyzeText,
-  summarizeWithOpenAi,
-  (_req, res) => {
-    const locals = res.locals as ApiLocals;
-
-    const topWords = locals.topWords ?? [];
-    const summaryResult = locals.summaryResult;
-
-    if (!summaryResult) {
-      return res.status(500).json({ err: 'server pipeline error' });
+// POST /api/summarize-text  -->  body: { text: string, topLimit?: number }
+app.post("/api/summarize-text", async (request: Request, response: Response, next: NextFunction) => {
+    try {
+        const result = await summarizeText(request.body);
+        response.status(200).json(result);
+    } catch (error) {
+        next(error);
     }
 
     const payload: SummarizeTextResponseBody = {
