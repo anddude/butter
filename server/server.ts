@@ -8,8 +8,11 @@
 
 
 
-// load .env once for the whole app
-import "dotenv/config";  // load first so middleware has access to the api keys
+ // load once and first so middleware have access to the api keys
+import "dotenv/config"; 
+// verify api key exists
+console.log("[env] openrouter key present:", Boolean(process.env.OPENROUTER_API_KEY));
+console.log("[env] llm provider:", process.env.LLM_PROVIDER);
 
 
 import express from "express";
