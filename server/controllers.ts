@@ -107,11 +107,11 @@ function buildPrompt(args: {
 
     // shapes the LLM's behavior
     const requirements = "Requirements: " +
-        "1) Write a short summary (3-6 sentences). " +
-        "2) List 3 key takeaways as bullets. " +
-        "3) List 3 next steps as bullets. " +
+        "1) Write a short summary (1-2 sentences). " +
+        "2) List 1 key takeaway as a bullet." +
+        "3) List 1 next step as a bullet."
         "4) Use the provided top keywords as signals for emphasis, but do not invent facts. " +
-        "5) If the text is ambiguous, explicitly say what is missing.";
+        "5) If the text is ambiguous, explicitly say what is missing. Skip all fluff and jargon";
 
     const steering = `Top keywords (emphasis signals): ${args.topWords.join(", ") || "(none)"}`;
 
