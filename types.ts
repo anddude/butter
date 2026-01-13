@@ -1,6 +1,5 @@
 /* ================================
   TL;DR  -->  SHARED API TYPES  (imported by both)
-
       - server code (express handlers)
       - client code (fetch + rendering)
       - every api request body and response payload should match one of these types
