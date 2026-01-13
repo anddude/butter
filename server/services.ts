@@ -1,67 +1,95 @@
 /* ================================
-  TL;DR  -->   pure functions used by controllers
+  TL;DR  -->  pure functions used by controllers
+
+      - normalize text into words + top words extraction
+      - build top words  -->  counts + top selection in one pass
 ================================ */
 
 
-import type { WordCount } from '../types.ts';
+import type { TopWord } from "../types";
 
 
-// common words to ignore as keywords
+// words we want to ignore for importance signals
 const stopWords = new Set<string>([
-  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'else', 'so',
-  'to', 'of', 'in', 'on', 'for', 'with', 'as', 'at', 'by', 'from',
-  'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
-  'my', 'your', 'his', 'hers', 'our', 'their',
-  'this', 'that', 'these', 'those',
-  'not', 'no', 'yes',
+    "a", "an", "the", "and", "or", "but",
+    "i", "you", "he", "she", "it", "we", "they",
+    "me", "my", "your", "our", "their",
+    "to", "of", "in", "on", "for", "with", "at", "by", "from",
+    "is", "are", "was", "were", "be", "been", "being",
+    "this", "that", "these", "those",
+    "as", "not", "if", "then", "than",
 ]);
 
 
 
 
-/* ---------- text cleaning ---------- */
+// normalize raw text into tokens we can count
+function tokenizeText(rawText: string): string[] {
 
-export const normalizeText = (rawText: string): string[] => {
-  const lowerText = rawText.toLowerCase();  // keep comparisons consistent
+    const lower = rawText.toLowerCase();  // lowercase to merge "Budget" and "budget"
 
-  const cleanedText = lowerText.replace(/[^a-z0-9'\s]/g, ' ');  // keep letters/numbers/apostrophes  -->  replace punctuation with spaces
+    const cleaned = lower.replace(/[^a-z0-9\s]/g, " ");  // replace most punctuation with spaces so words split cleanly
 
-  const roughWords = cleanedText.split(/\s+/g).filter(Boolean);  // split on whitespace
+    const collapsed = cleaned.replace(/\s+/g, " ").trim();  // collapse repeated whitespace into single spaces
+    if (collapsed.length === 0)  return [];
 
-  // filter out stopwords
-  const filteredWords = roughWords.filter((word) => {
-    if (word.length < 2) return false;
-    if (stopWords.has(word)) return false;
-    return true;
-  });
+    const tokens = collapsed.split(" ");  // split into tokens
 
-  return filteredWords;
-};
+    // filter out stop words + tiny tokens (like single letters)
+    return tokens.filter((token) => {
+        if (token.length <= 1) return false;
+        if (stopWords.has(token)) return false;
+        return true;
+    });
+}
 
 
 
-/* ---------- frequency counting ---------- */
 
-export const countWordFrequency = (words: string[]): Map<string, number> => {
-  const frequencyMap = new Map<string, number>();
+// get the top N words from text, with a single pass over tokens
+export function getTopWords( rawText: string,  topLimit: number ):  { topWords: TopWord[]; totalWords: number; uniqueWords: number }  {
+    const tokens = tokenizeText(rawText);
 
-  for (const word of words) {
-    const prevCount = frequencyMap.get(word) ?? 0;
-    frequencyMap.set(word, prevCount + 1);
-  }
+    const countMap = new Map<string, number>();  // frequency map for counts
 
-  return frequencyMap;
-};
+    let topList: TopWord[] = [];  // maintain a small list of candidates as we count
 
-export const getTopWords = (frequencyMap: Map<string, number>, topLimit: number): WordCount[] => {
-  const wordCounts: WordCount[] = [];
+    for (const token of tokens) {
+        const nextCount = (countMap.get(token) ?? 0) + 1;
+        countMap.set(token, nextCount);
 
-  for (const [word, count] of frequencyMap.entries()) {
-    wordCounts.push({ word, count });
-  }
+        // update top list in-place  -->  if token exists, update its count  ;  else, maybe insert it
+        const existingIndex = topList.findIndex((item) => item.word === token);
 
-  wordCounts.sort((a, b) => b.count - a.count);
+        if (existingIndex !== -1) {
+            topList[existingIndex] = { word: token, count: nextCount };
+        } else {
+            // only add if we still have room  OR  it can beat the smallest item
+            if (topList.length < topLimit) {
+                topList.push({ word: token, count: nextCount });
+            } else {
+                // find current minimum in topList
+                let minIndex = 0;
+                for (let i = 1; i < topList.length; i += 1) {
+                    if (topList[i].count < topList[minIndex].count) {
+                        minIndex = i;
+                    }
+                }
 
-  return wordCounts.slice(0, topLimit);
-};
+                // if this token beats the smallest entry, replace it
+                if (nextCount > topList[minIndex].count) {
+                    topList[minIndex] = { word: token, count: nextCount };
+                }
+            }
+        }
+
+        // keep it sorted descending so frontend gets stable output ordering
+        topList = topList.sort((a, b) => b.count - a.count).slice(0, topLimit);
+    }
+
+    return {
+        topWords: topList,
+        totalWords: tokens.length,
+        uniqueWords: countMap.size,
+    };
+}
