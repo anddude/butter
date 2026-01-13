@@ -8,16 +8,16 @@
 
 
 
+// load .env once for the whole app
+import "dotenv/config";  // load first so middleware has access to the api keys
+
+
 import express from "express";
 import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 
 import type { HealthPayload, LlmProvider } from "../types";
 import { analyzeText, summarizeText, ragSummarizeText } from "./controllers";
-
-
-dotenv.config();  // load .env once for the whole app
 
 
 // server config
