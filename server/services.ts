@@ -1,108 +1,95 @@
 /* ================================
-    TL;DR  -->  pure functions used by controllers
-        - normalize text into words
-        - build top words (counts + top selection in one pass)
+  TL;DR  -->  pure functions used by controllers
+
+      - normalize text into words + top words extraction
+      - build top words  -->  counts + top selection in one pass
 ================================ */
 
-import type { WordCount } from '../types.ts';
+
+import type { TopWord } from "../types";
 
 
-
-
-// common words to ignore as keywords
-// note: this list is intentionally small for mvp  -->  we can expand later if needed
+// words we want to ignore for importance signals
 const stopWords = new Set<string>([
-    'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'else', 'so',
-    'to', 'of', 'in', 'on', 'for', 'with', 'as', 'at', 'by', 'from',
-    'is', 'are', 'was', 'were', 'be', 'been', 'being',
-    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
-    'my', 'your', 'his', 'hers', 'our', 'their',
-    'this', 'that', 'these', 'those',
-    'not', 'no', 'yes',
+    "a", "an", "the", "and", "or", "but",
+    "i", "you", "he", "she", "it", "we", "they",
+    "me", "my", "your", "our", "their",
+    "to", "of", "in", "on", "for", "with", "at", "by", "from",
+    "is", "are", "was", "were", "be", "been", "being",
+    "this", "that", "these", "those",
+    "as", "not", "if", "then", "than",
 ]);
 
 
 
 
-    /* ---------- text cleaning ---------- */
+// normalize raw text into tokens we can count
+function tokenizeText(rawText: string): string[] {
 
-    export const normalizeText = (rawText: string): string[] => {
-    // lowercase so comparisons and stopword checks are consistent
-    const lowerText = rawText.toLowerCase();
+    const lower = rawText.toLowerCase();  // lowercase to merge "Budget" and "budget"
 
-    // replace non-word punctuation with spaces
-    // keep letters, numbers, apostrophes, and whitespace
-    const cleanedText = lowerText.replace(/[^a-z0-9'\s]/g, ' ');
+    const cleaned = lower.replace(/[^a-z0-9\s]/g, " ");  // replace most punctuation with spaces so words split cleanly
 
-    // split on whitespace and remove empty strings
-    const roughWords = cleanedText.split(/\s+/g).filter(Boolean);
+    const collapsed = cleaned.replace(/\s+/g, " ").trim();  // collapse repeated whitespace into single spaces
+    if (collapsed.length === 0)  return [];
 
-    // filter out stopwords and very short tokens
-    const filteredWords = roughWords.filter((word) => {
-        if (word.length < 2) return false;
-        if (stopWords.has(word)) return false;
+    const tokens = collapsed.split(" ");  // split into tokens
+
+    // filter out stop words + tiny tokens (like single letters)
+    return tokens.filter((token) => {
+        if (token.length <= 1) return false;
+        if (stopWords.has(token)) return false;
         return true;
     });
-
-    return filteredWords;
-    };
+}
 
 
 
 
-    /* ---------- top words (count + select in one pass) ---------- */
+// get the top N words from text, with a single pass over tokens
+export function getTopWords( rawText: string,  topLimit: number ):  { topWords: TopWord[]; totalWords: number; uniqueWords: number }  {
+    const tokens = tokenizeText(rawText);
 
-    export const buildTopWords = (words: string[], topLimit: number = 3): WordCount[] => {
-        // map constructor  -->  like a set but for key-value pairs (think dictionaries in other languages)
-        
-    const countMap = new Map<string, number>();
+    const countMap = new Map<string, number>();  // frequency map for counts
 
-    // array of top words (kept small)  -->  we keep it sorted by count desc
-    const topList: WordCount[] = [];
+    let topList: TopWord[] = [];  // maintain a small list of candidates as we count
 
-    // helper  -->  update or insert a word inside the top list (works better when top limit is small)
-    const upsertTop = (word: string, count: number) => {
-        // check if the word is already in topList
-        const foundIndex = topList.findIndex((item) => item.word === word);
+    for (const token of tokens) {
+        const nextCount = (countMap.get(token) ?? 0) + 1;
+        countMap.set(token, nextCount);
 
-        if (foundIndex !== -1) {
-        // update existing count
-        topList[foundIndex].count = count;
+        // update top list in-place  -->  if token exists, update its count  ;  else, maybe insert it
+        const existingIndex = topList.findIndex((item) => item.word === token);
+
+        if (existingIndex !== -1) {
+            topList[existingIndex] = { word: token, count: nextCount };
         } else {
-        // not in list yet  -->  only insert if we have space or it beats the smallest
-        if (topList.length < topLimit) {
-            topList.push({ word, count });
-        } else {
-            // list is full  -->  compare against the last item (smallest after sort)
-            const last = topList[topList.length - 1];
-            if (count > last.count) {
-            topList.push({ word, count });
+            // only add if we still have room  OR  it can beat the smallest item
+            if (topList.length < topLimit) {
+                topList.push({ word: token, count: nextCount });
             } else {
-            return; // no need to update list
+                // find current minimum in topList
+                let minIndex = 0;
+                for (let i = 1; i < topList.length; i += 1) {
+                    if (topList[i].count < topList[minIndex].count) {
+                        minIndex = i;
+                    }
+                }
+
+                // if this token beats the smallest entry, replace it
+                if (nextCount > topList[minIndex].count) {
+                    topList[minIndex] = { word: token, count: nextCount };
+                }
             }
         }
-        }
 
-        // keep list sorted by count desc, then by word for stability
-        topList.sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        return a.word.localeCompare(b.word);
-        });
-
-        // trim to topLimit in case we added extra
-        if (topList.length > topLimit) {
-        topList.length = topLimit;
-        }
-    };
-
-    // single pass over words  -->  update the map and top list at the same time
-    for (const word of words) {
-        const nextCount = (countMap.get(word) ?? 0) + 1;
-        countMap.set(word, nextCount);
-
-        // keep top list in sync with the updated count
-        upsertTop(word, nextCount);
+        // keep it sorted descending so frontend gets stable output ordering
+        topList = topList.sort((a, b) => b.count - a.count).slice(0, topLimit);
     }
 
-    return topList;
+    return {
+        topWords: topList,
+        totalWords: tokens.length,
+        uniqueWords: countMap.size,
     };
+}

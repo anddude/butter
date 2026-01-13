@@ -11,6 +11,7 @@ import type { KbEntry } from "../types";
 
 
 export const kbSeed: KbEntry[] = [
+    // admin tasks / descision style entries
     {
         id: "kb-project-atlas",
         title: "Project Atlas (proposed) - franchise reboot strategy",
@@ -54,7 +55,8 @@ export const kbSeed: KbEntry[] = [
         tags: ["policy", "brand"],
     },
 
-    // movie data style entries (useful for retrieval when users mention specific titles)
+    
+    // movie data style entries  -->  useful for retrieval when users mention specific titles
     {
         id: "kb-movie-echolane",
         title: "Movie - Echo Lane (2023)",
