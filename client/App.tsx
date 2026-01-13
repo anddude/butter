@@ -54,7 +54,7 @@ function App() {
       />
       <Button 
         onClick={handleClarify} 
-        label="Clarify"
+        label="Get Clarified"
         isLoading={isLoading} 
       />
       <TextResults 
