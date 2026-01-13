@@ -20,7 +20,7 @@ interface TextResultsProps {
 export function Button({ onClick, label, value }: ButtonProps) {
   return (
     <div className="clarified-button">
-      <button onClick="someFunction">Get Clarified.</button>
+      <button onClick="someFunction()">Get Clarified.</button>
     </div>
   );
 }

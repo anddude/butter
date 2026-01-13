@@ -5,9 +5,6 @@
       - defines the global error handler
 ================================ */
 
-
-
-
 import express from "express";
 import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import cors from "cors";
