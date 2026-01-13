@@ -1,43 +1,55 @@
 import { useState } from 'react'
 import './styles.css';
 import {Button, InputText, TextResults, RouteSelector} from './components.tsx';
-import type { RagSummarizeTextResponse } from '../types.ts';
-//import api once it's ready - esm
+import type { AnalyzeTextResponse, SummarizeTextResponse, RagSummarizeTextResponse } from '../types.ts';
+import {fetchAnalyzedText, fetchSummarizedText, ragSummarizeText } from './api'
+
+// modes supported by the backend routes
+type ButterMode = "analyze" | "summarize" | "rag";
+// results have a different shape denpending on the route
+type ButterResults = AnalyzeTextResponse | SummarizeTextResponse | RagSummarizeTextResponse;
+
 
 function App() {
-  //We'll need to manage the state of the input text and the clarified text here...other states we need to manage?
-  //store the raw text the user pastes into the inputtext component.
+  // store raw text user inputs
   const [inputText, setInputText] = useState("");
-  //should hold the response from the server. It starts as null bc we do not hav edata until the user clicks clarify
-  const [results, setResults] = useState<RagSummarizeTextResponse | null>(null); //removed 
-  //a standad boolean flag to show that we are "loading" the response from the server
+  
+  // store the most recent sever response
+  const [results, setResults] = useState<ButterResults | null>(null);
+  
+  // boolean flag to show we're still gathering the server response
   const [isLoading, setIsLoading] = useState(false);
-  const [currentMode, setCurrentMode] = useState < "analyze" | "summarize" | "rag">("analyze");
+  
+  // track which endpoint / behavior the user wants
+  const [currentMode, setCurrentMode] = useState <ButterMode>("analyze");
+  
+  // readable errors for the UI
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  //we need async function to "fetch" from the server .. localhost:4200? whichever port Elijah decides onthe backend - esm
+
   const handleClarify = async () => {
-    //edge case - if inputText is empty, we do nothing
+    // edge case  -->  empty string or whitespace only
     if (!inputText.trim()) {
       return;
     }
+
+    // clear out old UI state before a new request
     setIsLoading(true);
+    setErrorMessage(null);
+
     try {
-      const response = await fetch("http://localhost:3000/api/summarize-text", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: inputText, topLimit: 10 }), //example topLimit
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+      if (currentMode === "analyze") {
+        let data = await fetchAnalyzedText( {text: inputText});
+        setResults(data)
+      } else if (currentMode === "summarize") {
+        let data= await fetchSummarizedText ( {text: inputText});
+        setResults(data)
+      } else{
+        let data = await ragSummarizeText( {text: inputText});
+        setResults(data)
       }
-
-      const data: RagSummarizeTextResponse = await response.json();
-      setResults(data);
     } catch (error) {
-      console.error("Failed to fetch clarified text:", error);
+      console.error("Fetch failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +66,11 @@ function App() {
       />
       <Button 
         onClick={handleClarify} 
+<<<<<<< Updated upstream
         label="Get Clarified"
+=======
+        label="Get clarified"
+>>>>>>> Stashed changes
         isLoading={isLoading} 
       />
       <TextResults 
