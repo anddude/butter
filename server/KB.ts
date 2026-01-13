@@ -10,7 +10,10 @@
 
 
 import { pipeline } from "@xenova/transformers";  // local embedding model runner
+import type { FeatureExtractionPipeline, Tensor } from "@xenova/transformers";  // strong types for embeddings + tensor output
+
 import { Pinecone } from "@pinecone-database/pinecone";  // vector database client
+
 import type { KbChunk, KbEntry, RagMatch } from "../types";
 import { kbSeed } from "./kbSeed";
 
@@ -35,7 +38,7 @@ const maxContextChars = Number(process.env.MAX_CONTEXT_CHARS ?? "3500");
 // ----------  lazy singletons  -->  create once and avoid reloading per request  ----------
 
 // embedder pipeline is expensive / heavy
-let embedderPromise: Promise<ReturnType<typeof pipeline>> | null = null;
+let embedderPromise: Promise<FeatureExtractionPipeline> | null = null;
 // connect to pinecone 
 let pineconeClient: Pinecone | null = null;
 // track if upsert to pincone was already occured
@@ -44,26 +47,28 @@ let kbSeeded = false;
 
 
 
-// ----------  embeddings (local)  ----------
+// ----------  embeddings (local HF)  ----------
 
-// get or create the embedding pipeline
-async function getEmbedder() {
-    if (!embedderPromise)  embedderPromise = pipeline("feature-extraction", embedModel);  // returns vectors instead of text
+// get or create the embedding pipeline  -->  stores the in-flight pipeline load  ;  avoids duplicate loads from parallel requests
+async function getEmbedder(): Promise<FeatureExtractionPipeline> {
+    // outputs Tensor embeddings
+    if (!embedderPromise)  embedderPromise = pipeline("feature-extraction", embedModel);
 
     return embedderPromise;
 }
 
 
-// turn text into a numeric vector
+// convert raw text into a pinecone-ready vector (number[])
 async function embedText(text: string): Promise<number[]> {
-    const embedder = await getEmbedder();
+    const embedder = await getEmbedder();  // call FeatureExtractionPipeline
 
-    const output = await embedder(text, {
-        pooling: "mean",  // combines token vectors into one sentence vector
+    // feature-extraction returns a Tensor
+    const output: Tensor = await embedder(text, {
+        pooling: "mean",  // collapse token embeddings into one sentence/document vector
         normalize: true,  // makes cosine similarity behave more consistently
     });
 
-    // transformers.js returns a typed array  -->  pinecone wants a normal number[]
+    // pinecone expects a plain number[]  -->  Tensor.data is a typed array (Float32Array)
     return Array.from(output.data as Float32Array);
 }
 
