@@ -8,16 +8,19 @@
 
 
 
+ // load once and first so middleware have access to the api keys
+import "dotenv/config"; 
+// verify api key exists
+console.log("[env] openrouter key present:", Boolean(process.env.OPENROUTER_API_KEY));
+console.log("[env] llm provider:", process.env.LLM_PROVIDER);
+
+
 import express from "express";
 import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 
 import type { HealthPayload, LlmProvider } from "../types";
 import { analyzeText, summarizeText, ragSummarizeText } from "./controllers";
-
-
-dotenv.config();  // load .env once for the whole app
 
 
 // server config

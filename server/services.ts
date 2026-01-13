@@ -46,46 +46,44 @@ function tokenizeText(rawText: string): string[] {
 
 
 
-// get the top N words from text, with a single pass over tokens
-export function getTopWords( rawText: string,  topLimit: number ):  { topWords: TopWord[]; totalWords: number; uniqueWords: number }  {
+// get the top N words from text with 1 + partial pass
+    // 1) build frequency map in one pass 
+    // 2) select top N with a small list (fixes repeated full sort)
+export function getTopWords(  rawText: string,  topLimit: number,  ): { topWords: TopWord[];  totalWords: number; uniqueWords: number } {
     const tokens = tokenizeText(rawText);
 
-    const countMap = new Map<string, number>();  // frequency map for counts
+    // frequency map (count for each uniquw token)  -->  key-value pairs (similar to dictionaries in other languages)
+    const countMap = new Map<string, number>();
 
-    let topList: TopWord[] = [];  // maintain a small list of candidates as we count
+    // pass 1  -->  count everything
+    for (const token of tokens)  countMap.set(token, (countMap.get(token) ?? 0) + 1);
 
-    for (const token of tokens) {
-        const nextCount = (countMap.get(token) ?? 0) + 1;
-        countMap.set(token, nextCount);
+    // pass 2  -->  extract top N without sorting all unique words ; capped at <= 12
+    const topList: TopWord[] = [];
 
-        // update top list in-place  -->  if token exists, update its count  ;  else, maybe insert it
-        const existingIndex = topList.findIndex((item) => item.word === token);
+    for (const [word, count] of countMap.entries()) {
+        // still filling topList ?  -->  just push
+        if (topList.length < topLimit) {
+            topList.push({ word, count });
+            continue;
+        }
 
-        if (existingIndex !== -1) {
-            topList[existingIndex] = { word: token, count: nextCount };
-        } else {
-            // only add if we still have room  OR  it can beat the smallest item
-            if (topList.length < topLimit) {
-                topList.push({ word: token, count: nextCount });
-            } else {
-                // find current minimum in topList
-                let minIndex = 0;
-                for (let i = 1; i < topList.length; i += 1) {
-                    if (topList[i].count < topList[minIndex].count) {
-                        minIndex = i;
-                    }
-                }
-
-                // if this token beats the smallest entry, replace it
-                if (nextCount > topList[minIndex].count) {
-                    topList[minIndex] = { word: token, count: nextCount };
-                }
+        // find the smallest item currently in topList
+        let minIndex = 0;
+        for (let i = 1; i < topList.length; i += 1) {
+            if (topList[i].count < topList[minIndex].count) {
+                minIndex = i;
             }
         }
 
-        // keep it sorted descending so frontend gets stable output ordering
-        topList = topList.sort((a, b) => b.count - a.count).slice(0, topLimit);
+        // replace smallest only if this word beats it
+        if (count > topList[minIndex].count) {
+            topList[minIndex] = { word, count };
+        }
     }
+
+    // final ordering  -->  only sort the tiny topList (not all unique words)
+    topList.sort((a, b) => b.count - a.count);
 
     return {
         topWords: topList,
