@@ -122,3 +122,31 @@ const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
   console.log(`server listening on port ${port}`);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ================================
+  TL;DR  -->  pure functions used by controllers
+
+      - normalize text into words + top words extraction
+      - build top words  -->  counts + top selection in one pass
+================================ */
+
+
+
+
