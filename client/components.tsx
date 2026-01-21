@@ -1,6 +1,6 @@
 import type { TopWord, RagMatch } from '../types';
 import './styles.css';
-import type { ButterMode } from './App.ts';
+import type { ButterMode, ButterResults } from './frontendtypes';
 
 //Adding Types here
 interface ButtonProps {

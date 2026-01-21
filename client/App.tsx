@@ -1,14 +1,9 @@
 import { useState } from 'react'
 import './styles.css';
-import {Button, InputText, TextResults, RouteSelector} from './components.tsx';
-import type { AnalyzeTextResponse, SummarizeTextResponse, RagSummarizeTextResponse } from '../types.ts';
-import { fetchAnalyzedText, fetchSummarizedText, ragSummarizeText } from './api.ts'
-
-// modes supported by the backend routes
-export type ButterMode = "analyze" | "summarize" | "rag";
-// results have a different shape denpending on the route
-type ButterResults = AnalyzeTextResponse | SummarizeTextResponse | RagSummarizeTextResponse;
-
+import {Button, InputText, TextResults, RouteSelector} from './components';
+import type { AnalyzeTextResponse, SummarizeTextResponse, RagSummarizeTextResponse } from '../types';
+import type { ButterMode, ButterResults } from './frontendtypes';
+import { fetchAnalyzedText, fetchSummarizedText, ragSummarizeText } from './api'
 
 function App() {
   // store raw text user inputs
