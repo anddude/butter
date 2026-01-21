@@ -36,6 +36,7 @@ export function Button({ onClick, label, isLoading }: ButtonProps) {
   );
 }
 
+
 export function InputText({ placeholder, value, onChange }: InputTextProps) {
   return (
     <div className="input-container">
