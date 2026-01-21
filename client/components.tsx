@@ -39,7 +39,7 @@ export function Button({ onClick, label, isLoading }: ButtonProps) {
 export function InputText({ placeholder, value, onChange }: InputTextProps) {
   return (
     <div className="input-container">
-      <div>
+      <div className="title-area">
         <h1>Butter.</h1>
       </div>
       <div>
@@ -70,14 +70,14 @@ export function TextResults({ summary, topWords, matches }: TextResultsProps) {
 
       {topWords.length === 0 ? (
         <p className="muted-text">
-          No keywords yet. Paste text and click Clarify.
+          No keywords yet. Paste text and click Get Clarified.
         </p>
       ) : (
         <ul className="keyword-list">
           {topWords.map((item) => (
             <li key={item.word} className="keyword-item">
-              <span className="words">{item.word}</span>
-              <span className="count">{item.count}</span>
+              <span className="words">{item.word} was mentioned </span>
+              <span className="count">{item.count}x.</span>
             </li>
           ))}
         </ul>
@@ -107,7 +107,9 @@ export function RouteSelector({
 }: RouteSelectorProps) {
   return (
     <div className="selector-container">
-      <label htmlFor="route-select">Choose Analysis Type:</label>
+      <label htmlFor="route-select">
+        <h2>Choose Analysis Type:</h2>
+        </label>
       <select
         id="route-select"
         value={currentMode}
