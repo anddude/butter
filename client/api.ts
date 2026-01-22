@@ -5,7 +5,7 @@ import type {
   SummarizeTextResponse,
   RagSummarizeTextRequest,
   RagSummarizeTextResponse,
-} from '../types.ts';
+} from '../types';
 //import text input from app.tsx
 
 //generic error handler to reduce repetition & keep it DRY
