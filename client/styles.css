@@ -4,7 +4,7 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(224, 46, 46, 0.87);
+  color: rgba(224, 120, 46, 0.89);
   background-color: rgb(249, 223, 177);
 
   font-synthesis: none;
@@ -52,6 +52,7 @@ body {
 }
 
 h1 {
+  color: #ac1807;
   font-size: 4em;
   line-height: .5;
   width: 100%;
@@ -68,11 +69,13 @@ h1 {
 }
 
 h2 {
+  color: #ac1807;
   font-size: 1.5em;
   line-height: .25;
 }
 
 h3 {
+  color: #ac1807;
   font-size: 1.5em;
   line-height: .25;
 }
