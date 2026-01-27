@@ -26,6 +26,9 @@ const pineconeKey = process.env.PINECONE_API_KEY ?? '';
 const pineconeIndexName = process.env.PINECONE_INDEX ?? 'butter-kb';
 const pineconeNamespace = process.env.PINECONE_NAMESPACE ?? 'dev';
 
+//env flag for clearing kb in development
+const pineconeReset = process.env.RESET_PINECONE_KB ?? '';
+
 // context cap  -->  control cost + reliability
 const maxContextChars = Number(process.env.MAX_CONTEXT_CHARS ?? '3500');
 
@@ -133,6 +136,20 @@ function getPinecone(): Pinecone | null {
   return pineconeClient;
 }
 
+async function resetPineconeNamespace(): Promise<void> {
+  const pinecone = getPinecone();
+  if(!pinecone) return;
+
+   console.warn(
+    `[RAG:init] RESET_PINECONE_KB enabled — clearing namespace "${pineconeNamespace}"`
+  );
+
+  await pinecone
+    .index(pineconeIndexName)
+    .namespace(pineconeNamespace)
+    .deleteAll();
+}
+
 // ensure the KB is upserted into pinecone exactly once
 export async function ensureKbSeeded(): Promise<void> {
   if (kbSeeded) return;
@@ -147,6 +164,10 @@ export async function ensureKbSeeded(): Promise<void> {
   );
     kbSeeded = true;
     return;
+  }
+
+   if (process.env.RESET_PINECONE_KB === 'true') {
+    await resetPineconeNamespace();
   }
 
   const index = pinecone.index(pineconeIndexName).namespace(pineconeNamespace);
