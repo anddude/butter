@@ -13,7 +13,7 @@ import type { KbEntry } from "../types";
 export const kbSeed: KbEntry[] = [
   // Knowledge base seed for our example company, Aurora Creative, an advertising agency. 
   // The information below contains pertinent details about 17 advertising campaign projects,
-  //  important details about the company history, company-wide inititiatives, and their clients.
+  // important details about the company history, company-wide inititiatives, and their clients.
   {
     id: "kb-campaign-orbit",
     title: "Campaign Orbit (current) - global brand repositioning",

@@ -140,6 +140,11 @@ export async function ensureKbSeeded(): Promise<void> {
   const pinecone = getPinecone();
   // mark seeded to avoid repeated work when pinecone is missing
   if (!pinecone) {
+     console.warn(
+    '[RAG:init] Pinecone client unavailable. ' +
+    'KB seeding disabled for this runtime. ' +
+    'Set PINECONE_API_KEY to enable retrieval.'
+  );
     kbSeeded = true;
     return;
   }
