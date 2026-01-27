@@ -118,16 +118,19 @@ function buildPrompt(args: {
     '7) If the text is ambiguous, explicitly say what is missing.' +
     '8) If the user needs more information from the email sender to complete the task, flag that in the summary. ';
 
-const ragRequirements = args.ragContext
-  ? 'Additional RAG Requirements:\n' +
-    '1) Do not reference company context unrelated to the email topic or participants.\n' +
-    '2) Use context only to clarify what the user needs to do next.\n' +
-    '3) Use context only to clarify details already present in the email.\n' +
-    '4) Do NOT summarize, list, or restate the company context.\n' +
-    '5) The summary must reflect ONLY the user email; context is background knowledge only.\n' +
-    '6) Source priority: user email > retrieved context.'
-  : '';
+  const ragRequirements = args.ragContext
+    ? 'Additional RAG Requirements:\n' +
+      '1) Source priority is strict: the user email is the sole source of truth; retrieved context is background only.\n' +
+      '2) Use retrieved context only to clarify or confirm details that are already present in the user email.\n' +
+      '3) Do NOT introduce, infer, or combine information that is not explicitly supported by the user email.\n' +
+      '4) Do NOT reference, summarize, restate, or list retrieved company context.\n' +
+      '5) Do NOT reference company information unrelated to the email topic or participants.\n' +
+      '6) If the retrieved context does not directly support the requested task, respond with: "Insufficient information."\n' +
+      '7) The summary and next steps MUST be derivable from the user email alone.\n' +
+      '8) Retrieved context must NOT introduce new actions, decisions, or conclusions.\n' + 
+      '9) If any retrieved context contains information not explicitly stated in the email, it must be ignored completely.\n'
 
+    : '';
 
   const requirements = [
     baseRequirements,
@@ -140,7 +143,15 @@ const ragRequirements = args.ragContext
 
   // RAG ?  -->  inject context here (capped in KB.ts)
   const contextBlock = args.ragContext
-    ? `Background reference (do not summarize): \n${args.ragContext}`
+    ? `
+    ----- OPTIONAL BACKGROUND (DO NOT USE FOR SUMMARY) -----
+    The following entries are NOT facts for this task.
+    They exist only to confirm names or entities already present in the email.
+    If not explicitly referenced in the email, IGNORE THEM COMPLETELY.
+
+    ${args.ragContext}
+    ----- END OPTIONAL BACKGROUND -----
+    `
     : '';
 
   const outputFormat =
@@ -241,13 +252,17 @@ export async function ragSummarizeText(
   await ensureKbSeeded();
 
   // retrieve context from pinecone using embeddings similarity
-  const rag = await searchKb(text, 5);
+  const rag = await searchKb(text, 3);
 
   const prompt = buildPrompt({
     text,
     topWords: topWords.map((item) => item.word),
     ragContext: rag.contextText,
   });
+
+  console.log('--- PROMPT START ---');
+  console.log(prompt);
+  console.log('--- PROMPT END ---');
 
   const { client, model } = getLlmClient();
 
