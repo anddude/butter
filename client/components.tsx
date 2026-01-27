@@ -45,7 +45,6 @@ export function InputText({ placeholder, value, onChange }: InputTextProps) {
       </div>
       <div>
         <textarea
-          className="text-input"
           placeholder="Enter text to be clarified here..."
           value={value}
           onChange={(e) => onChange(e.target.value)}
