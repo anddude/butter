@@ -26,11 +26,10 @@ const pineconeKey = process.env.PINECONE_API_KEY ?? '';
 const pineconeIndexName = process.env.PINECONE_INDEX ?? 'butter-kb';
 const pineconeNamespace = process.env.PINECONE_NAMESPACE ?? 'dev';
 
-//env flag for clearing kb in development
-const pineconeReset = process.env.RESET_PINECONE_KB ?? '';
-
 // context cap  -->  control cost + reliability
-const maxContextChars = Number(process.env.MAX_CONTEXT_CHARS ?? '3500');
+const maxContextChars = Number(process.env.MAX_CONTEXT_CHARS ?? '2500');
+const SCORE_THRESHOLD = 0.3;  // drop low-quality matches
+const MAX_TOP_K = 2;           // hard cap on retrieval
 
 // ----------  lazy singletons  -->  create once and avoid reloading per request  ----------
 
@@ -138,10 +137,10 @@ function getPinecone(): Pinecone | null {
 
 async function resetPineconeNamespace(): Promise<void> {
   const pinecone = getPinecone();
-  if(!pinecone) return;
+  if (!pinecone) return;
 
-   console.warn(
-    `[RAG:init] RESET_PINECONE_KB enabled — clearing namespace "${pineconeNamespace}"`
+  console.warn(
+    `[RAG:init] RESET_PINECONE_KB enabled — clearing namespace "${pineconeNamespace}"`,
   );
 
   await pinecone
@@ -157,16 +156,16 @@ export async function ensureKbSeeded(): Promise<void> {
   const pinecone = getPinecone();
   // mark seeded to avoid repeated work when pinecone is missing
   if (!pinecone) {
-     console.warn(
-    '[RAG:init] Pinecone client unavailable. ' +
-    'KB seeding disabled for this runtime. ' +
-    'Set PINECONE_API_KEY to enable retrieval.'
-  );
+    console.warn(
+      '[RAG:init] Pinecone client unavailable. ' +
+        'KB seeding disabled for this runtime. ' +
+        'Set PINECONE_API_KEY to enable retrieval.',
+    );
     kbSeeded = true;
     return;
   }
 
-   if (process.env.RESET_PINECONE_KB === 'true') {
+  if (process.env.RESET_PINECONE_KB === 'true') {
     await resetPineconeNamespace();
   }
 
@@ -197,12 +196,15 @@ export async function ensureKbSeeded(): Promise<void> {
 // query pinecone for similar context
 export async function searchKb(
   queryText: string,
-  topK: number
+  topK: number,
 ): Promise<{ matches: RagMatch[]; contextText: string; contextChars: number }> {
   const pinecone = getPinecone();
 
   // if pinecone isn't configured, return empty RAG context
   if (!pinecone) return { matches: [], contextText: '', contextChars: 0 };
+
+  const clampedTopK = Math.min(topK, MAX_TOP_K);
+  console.log(`[RAG:query] "${queryText.slice(0, 120)}" topK=${clampedTopK}`);
 
   const index = pinecone.index(pineconeIndexName).namespace(pineconeNamespace);
 
@@ -210,15 +212,37 @@ export async function searchKb(
 
   const result = await index.query({
     vector: queryVector,
-    topK,
+    topK: clampedTopK,
     includeMetadata: true,
   });
 
+  const raw = result.matches ?? [];
+
+  // filter by similarity score threshold
+  const aboveThreshold = raw.filter((m) => (m.score ?? 0) >= SCORE_THRESHOLD);
+
+  // deduplicate by entryId — keep highest-score chunk per source document
+  const seenEntryIds = new Map<string, (typeof raw)[0]>();
+  for (const m of aboveThreshold) {
+    const entryId = String(m.metadata?.entryId ?? m.id);
+    const existing = seenEntryIds.get(entryId);
+    if (!existing || (m.score ?? 0) > (existing.score ?? 0)) {
+      seenEntryIds.set(entryId, m);
+    }
+  }
+  const deduped = Array.from(seenEntryIds.values());
+
+  console.log(
+    `[RAG:retrieval] raw=${raw.length} above-threshold=${aboveThreshold.length} deduped=${deduped.length}`,
+  );
+
   // normalize matches for UI / debugging
-  const matches: RagMatch[] = (result.matches ?? []).map((match) => {
+  const matches: RagMatch[] = deduped.map((match) => {
     const title = String(match.metadata?.title ?? 'untitled');
     const text = String(match.metadata?.text ?? '');
-
+    console.log(
+      `[RAG:chunk] score=${(match.score ?? 0).toFixed(3)} title="${title}" id="${match.id}"`,
+    );
     return {
       id: match.id,
       score: match.score ?? 0,
@@ -227,11 +251,11 @@ export async function searchKb(
     };
   });
 
-  // build the injected context string (what goes into the prompt)  -->  keep prompts cheap with cap by MAX_CONTEXT_CHARS
+  // build the injected context string (capped at MAX_CONTEXT_CHARS)
   let contextText = '';
   let usedChars = 0;
 
-  for (const match of result.matches ?? []) {
+  for (const match of deduped) {
     const title = String(match.metadata?.title ?? 'untitled');
     const text = String(match.metadata?.text ?? '');
 
@@ -239,7 +263,6 @@ export async function searchKb(
       `\n[context: ${title} | id=${match.id} | score=${match.score ?? 0}]\n` +
       `${text}\n`;
 
-    // stop if adding this block would exceed the cap
     if (usedChars + block.length > maxContextChars) {
       const remaining = maxContextChars - usedChars;
       if (remaining > 0) {
@@ -252,6 +275,8 @@ export async function searchKb(
     contextText += block;
     usedChars += block.length;
   }
+
+  console.log(`[RAG:context] chars=${usedChars} / max=${maxContextChars}`);
 
   return {
     matches,

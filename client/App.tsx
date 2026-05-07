@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './styles.css';
 import {Button, InputText, TextResults, RouteSelector} from './components';
-import type { AnalyzeTextResponse, SummarizeTextResponse, RagSummarizeTextResponse } from '../types';
+import type { RagSummarizeTextResponse } from '../types';
 import type { ButterMode, ButterResults } from './frontendtypes';
 import { fetchAnalyzedText, fetchSummarizedText, ragSummarizeText } from './api'
 
@@ -83,7 +83,7 @@ function App() {
 
       <TextResults 
         // summary exists for summarize + rag  but not analyze
-        summary={'summary' in (results ?? {}) ? results?.summary : undefined}
+        summary={'summary' in (results ?? {}) ? (results as { summary?: string }).summary : undefined}
 
         // all 3 routes return topWords
         topWords={results?.topWords || []}

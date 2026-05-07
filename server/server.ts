@@ -42,7 +42,7 @@ app.use(express.json());
 // ----------  routes  ----------
 
 // GET /api/health  -->  just confirms the server is alive
-app.get('/api/health', (request: Request, response: Response) => {
+app.get('/api/health', (_request: Request, response: Response) => {
   const payload: HealthPayload = {
     ok: true,
     hasOpenAiKey,
@@ -96,9 +96,9 @@ app.post(
 
 const errorHandler: ErrorRequestHandler = (
   error: unknown,
-  request: Request,
+  _request: Request,
   response: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ) => {
   console.error('[server error]', error); // log for dev debugging
 

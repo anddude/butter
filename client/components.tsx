@@ -1,6 +1,6 @@
 import type { TopWord, RagMatch } from '../types';
 import './styles.css';
-import type { ButterMode, ButterResults } from './frontendtypes';
+import type { ButterMode } from './frontendtypes';
 
 //Adding Types here
 interface ButtonProps {
@@ -37,7 +37,7 @@ export function Button({ onClick, label, isLoading }: ButtonProps) {
 }
 
 
-export function InputText({ placeholder, value, onChange }: InputTextProps) {
+export function InputText({ value, onChange }: InputTextProps) {
   return (
     <div className="input-container">
       <div className="title-area">

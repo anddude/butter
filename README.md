@@ -112,7 +112,21 @@ npm install
 npm run dev
 ```
 
-Environment variables are required for AI and vector database integrations.
+Environment variables are required for AI and vector database integrations. Copy `.env.example` to `.env` and fill in your keys.
+
+### Switching models
+
+Set `LLM_MODEL` in `.env` to override the active provider's default model without changing any other config:
+
+```bash
+# use a paid OpenRouter tier to avoid free-model rate limits
+LLM_MODEL=meta-llama/llama-3.3-70b-instruct:nitro
+
+# or switch to a different free model
+LLM_MODEL=google/gemma-3-27b-it:free
+```
+
+`LLM_MODEL` takes precedence over `OPENAI_MODEL` and `OPENROUTER_MODEL`. Leave it unset to use the provider default.
 
 ---
 

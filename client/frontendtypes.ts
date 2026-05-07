@@ -4,6 +4,7 @@
       - ButterResults for shaping results depending on mode
 ================================ */
 
+import type { AnalyzeTextResponse, SummarizeTextResponse, RagSummarizeTextResponse } from '../types';
 
 // ----------  primitives  ----------
 

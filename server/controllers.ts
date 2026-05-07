@@ -38,6 +38,9 @@ const openRouterModel =
 const openRouterBaseUrl =
   process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1';
 
+// optional single-var override  -->  set LLM_MODEL to swap models without touching provider-specific vars
+const llmModelOverride = process.env.LLM_MODEL ?? '';
+
 // avoid server crash at startup  -->  create the client lazily so missing keys
 let cachedClient: OpenAI | null = null;
 let cachedProvider: LlmProvider | null = null;
@@ -69,6 +72,16 @@ function clampText(raw: unknown): string {
   return raw.slice(0, maxInputChars);
 }
 
+// re-throw 429s with a user-facing message; let all other errors propagate
+function handleLlmError(error: unknown): never {
+  if (error instanceof OpenAI.APIError && error.status === 429) {
+    throw new Error(
+      'The AI provider is rate-limiting requests. Try again with a shorter input or fewer retrieved chunks.',
+    );
+  }
+  throw error;
+}
+
 // get the active LLM client based on provider
 function getLlmClient(): { client: OpenAI; model: string } {
   // if provider changed between runs (dev vs dev:free), rebuild
@@ -80,18 +93,18 @@ function getLlmClient(): { client: OpenAI; model: string } {
         baseURL: openRouterBaseUrl,
       });
       cachedProvider = 'openrouter';
-      return { client: cachedClient, model: openRouterModel };
+      return { client: cachedClient, model: llmModelOverride || openRouterModel };
     }
 
     // default  -->  OpenAI
     cachedClient = new OpenAI({ apiKey: openAiKey });
     cachedProvider = 'openai';
-    return { client: cachedClient, model: openAiModel };
+    return { client: cachedClient, model: llmModelOverride || openAiModel };
   }
 
   // cached
-  const model = llmProvider === 'openrouter' ? openRouterModel : openAiModel;
-  return { client: cachedClient, model };
+  const baseModel = llmProvider === 'openrouter' ? openRouterModel : openAiModel;
+  return { client: cachedClient, model: llmModelOverride || baseModel };
 }
 
 // build prompts like in the skill builder
@@ -174,6 +187,49 @@ function buildPrompt(args: {
     .join('\n\n');
 }
 
+function buildRagMessages(args: {
+  text: string;
+  topWords: string[];
+  ragContext: string;
+}): Array<{ role: 'system' | 'user'; content: string }> {
+  const systemContent =
+    'You are a concise workplace assistant for an advertising company, Aurora Creative.\n' +
+    'Your job is to summarize the user email and produce actionable next steps.\n' +
+    'Use the provided retrieved context to clarify names, projects, clients, and company details referenced in the email.\n' +
+    'If the retrieved context is insufficient or irrelevant, answer from the email text alone and say so.\n\n' +
+    'Requirements:\n' +
+    '1) Write a concise 1 sentence summary.\n' +
+    '2) Write a next steps section for the user to use in their response.\n' +
+    '3) Ignore pleasantries, greetings, small talk, personal information.\n' +
+    '4) Focus on company projects, client needs, and workflow.\n' +
+    '5) Use top keywords as emphasis signals; do not invent facts not present in the email or context.\n' +
+    '6) If the email is ambiguous, say what is missing.\n' +
+    '7) If the user needs more information to complete the task, flag it.\n\n' +
+    'Output format:\n' +
+    'Summary:\n<one sentence>\n\n' +
+    'Next steps:\n- ...';
+
+  const contextBlock = args.ragContext.trim()
+    ? `CONTEXT (retrieved company knowledge):\n${args.ragContext}`
+    : 'CONTEXT: No relevant company knowledge retrieved.';
+
+  const userContent = [
+    contextBlock,
+    '',
+    `Top keywords (emphasis signals): ${args.topWords.join(', ') || '(none)'}`,
+    '',
+    'USER EMAIL:',
+    args.text,
+    '',
+    'ANSWER:',
+  ].join('\n');
+
+  return [
+    { role: 'system', content: systemContent },
+    { role: 'user', content: userContent },
+  ];
+}
+
 // ----------  handlers used by server.ts routes  ----------
 
 export async function analyzeText(
@@ -218,13 +274,24 @@ export async function summarizeText(
 
   const { client, model } = getLlmClient();
 
-  const response = await client.chat.completions.create({
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    // keep output bounded for cost + predictability
-    max_tokens: 450,
-    temperature: 0.2,
-  });
+  const reqId = Date.now().toString(36);
+  console.log(
+    `[LLM:call] reqId=${reqId} ts=${new Date().toISOString()} model=${model}` +
+    ` messages=1 total_chars=${prompt.length}`,
+  );
+
+  let response: Awaited<ReturnType<typeof client.chat.completions.create>>;
+  try {
+    response = await client.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      // keep output bounded for cost + predictability
+      max_tokens: 450,
+      temperature: 0.2,
+    });
+  } catch (error) {
+    handleLlmError(error);
+  }
 
   const summary = response.choices[0]?.message?.content ?? '';
 
@@ -254,24 +321,34 @@ export async function ragSummarizeText(
   // retrieve context from pinecone using embeddings similarity
   const rag = await searchKb(text, 3);
 
-  const prompt = buildPrompt({
+  const messages = buildRagMessages({
     text,
     topWords: topWords.map((item) => item.word),
     ragContext: rag.contextText,
   });
 
-  console.log('--- PROMPT START ---');
-  console.log(prompt);
-  console.log('--- PROMPT END ---');
-
   const { client, model } = getLlmClient();
 
-  const response = await client.chat.completions.create({
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 500,
-    temperature: 0.2,
-  });
+  const reqId = Date.now().toString(36);
+  const systemChars = messages[0].content.length;
+  const userChars = messages[1].content.length;
+  console.log(
+    `[RAG:call] reqId=${reqId} ts=${new Date().toISOString()} model=${model}` +
+    ` messages=${messages.length} system_chars=${systemChars} user_chars=${userChars}` +
+    ` total_chars=${systemChars + userChars} context_chars=${rag.contextChars}`,
+  );
+
+  let response: Awaited<ReturnType<typeof client.chat.completions.create>>;
+  try {
+    response = await client.chat.completions.create({
+      model,
+      messages,
+      max_tokens: 500,
+      temperature: 0.2,
+    });
+  } catch (error) {
+    handleLlmError(error);
+  }
 
   const summary = response.choices[0]?.message?.content ?? '';
 
